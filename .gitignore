@@ -1,0 +1,40 @@
+# =========================
+# Entornos Virtuales (uv / pip)
+# =========================
+.venv/
+venv/
+env/
+
+# =========================
+# Variables de Entorno (¡CRÍTICO!)
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Python Cache & Bytecode
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# =========================
+# Logs y Langfuse
+# =========================
+*.log
+.langfuse/
+
+# =========================
+# IDEs y Editores (VS Code, Cursor, etc.)
+# =========================
+.vscode/
+.idea/
+*.swp
+
+# =========================
+# OS Files (Windows / Mac)
+# =========================
+.DS_Store
+Thumbs.db
