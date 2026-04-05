@@ -78,17 +78,17 @@ with st.sidebar:
         type="password",
         placeholder="sk-…",
     )
-    st.session_state["langfuse_public_key"] = st.text_input(
-        "Langfuse Public Key",
-        value=st.session_state["langfuse_public_key"],
-        type="password",
-        placeholder="pk-lf-…",
-    )
     st.session_state["langfuse_secret_key"] = st.text_input(
         "Langfuse Secret Key",
         value=st.session_state["langfuse_secret_key"],
         type="password",
         placeholder="sk-lf-…",
+    )
+    st.session_state["langfuse_public_key"] = st.text_input(
+        "Langfuse Public Key",
+        value=st.session_state["langfuse_public_key"],
+        type="password",
+        placeholder="pk-lf-…",
     )
     st.session_state["langfuse_host"] = st.text_input(
         "Langfuse Host",

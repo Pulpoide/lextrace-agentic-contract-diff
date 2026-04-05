@@ -154,11 +154,57 @@ Las API keys se configuran en el sidebar y se mantienen en memoria de sesión �
 
 ### Modo CLI (Terminal)
 
+El archivo `src/main.py` es el entry point que ejecuta el pipeline completo desde la terminal. Acepta dos rutas de imágenes como argumentos posicionales:
+
 ```bash
-python src/main.py data/original.png data/amendment.png
+python -m src.main <ruta_contrato_original> <ruta_adenda>
 ```
 
-### Ejemplo de Output
+| Argumento  | Descripción                              |
+| ---------- | ---------------------------------------- |
+| `original` | Ruta a la imagen del contrato original   |
+| `amendment`| Ruta a la imagen de la adenda/enmienda   |
+
+#### Ejemplo con imágenes de prueba
+
+```bash
+python -m src.main data/test_contracts/original.png data/test_contracts/enmienda.png
+```
+
+> **Nota:** Si usás `uv` como gestor de entorno, ejecutá con `uv run python -m src.main ...`
+
+#### Pipeline de ejecución
+
+El CLI ejecuta los mismos 4 pasos que la interfaz Streamlit:
+
+```
+LexTrace -- Iniciando analisis...
+
+[Paso 1] Extrayendo texto de las imagenes...
+   -> Procesando contrato original: data/test_contracts/original.png
+   [OK] Original: 798 caracteres extraidos
+   -> Procesando adenda: data/test_contracts/enmienda.png
+   [OK] Adenda: 1011 caracteres extraidos
+
+[Paso 2] Agente Cartografo -- Mapeando correspondencias...
+   [OK] 7 secciones mapeadas
+      [MOD] 1. Alcance del Servicio
+      [MOD] 2. Duración
+      [MOD] 3. Honorarios
+      [MOD] 4. Entregables
+      [MOD] 5. Confidencialidad
+      [MOD] 6. Legislación Aplicable
+      [NEW] 7. Propiedad Intelectual
+
+[Paso 3] Agente Detective -- Analizando cambios...
+   [OK] Analisis completado
+
+============================================================
+RESULTADO FINAL
+============================================================
+```
+
+#### Ejemplo de Output JSON
 
 ```json
 {
@@ -170,13 +216,12 @@ python src/main.py data/original.png data/amendment.png
     "7. Propiedad Intelectual"
   ],
   "topics_touched": [
-    "Alcance del Servicio",
+    "Soporte Técnico",
     "Plazos",
     "Financiero",
-    "Entregables",
     "Propiedad Intelectual"
   ],
-  "summary_of_the_change": "Se amplió el alcance del servicio para incluir análisis regulatorio. La duración del servicio se extendió de 6 a 9 meses. El honorario mensual aumentó de USD 8.000 a USD 9.500. La frecuencia de los reportes de avance cambió de mensual a quincenal. Se añadió una nueva cláusula de propiedad intelectual, estableciendo que todos los entregables serán propiedad del Cliente tras el pago final."
+  "summary_of_the_change": "Se amplió el alcance del servicio para incluir análisis regulatorio. La duración del servicio se extendió de 6 a 9 meses. El honorario mensual aumentó de USD 8.000 a USD 9.500. La frecuencia de los reportes de avance cambió de mensual a quincenal. Se añadió una cláusula de propiedad intelectual que establece que todos los entregables serán propiedad del Cliente tras el pago final."
 }
 ```
 
