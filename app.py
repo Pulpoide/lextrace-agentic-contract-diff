@@ -14,12 +14,19 @@ import streamlit as st
 import tempfile
 
 try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
+try:
     # Langfuse v3+
     from langfuse import get_client, propagate_attributes
     from langfuse.langchain import CallbackHandler
 except ImportError:
     # Langfuse v2 fallback
-    from langfuse.callback import CallbackHandler
+    from langfuse.callback import CallbackHandler  # type: ignore
 
     get_client = None
     propagate_attributes = None
@@ -39,7 +46,6 @@ from src.models import ContractChangeOutput
 st.set_page_config(
     page_title="LexTrace — Análisis de Contratos",
     page_icon="⚖️",
-    layout="wide",
     initial_sidebar_state="expanded",
 )
 
@@ -47,17 +53,16 @@ st.set_page_config(
 # Session-state defaults
 # ---------------------------------------------------------------------------
 
-# sheet_text_0..2  → Contrato Original (hojas 1-3)
-# sheet_text_3..5  → Adenda            (hojas 1-3)
-_TEXT_KEYS = [f"sheet_text_{i}" for i in range(6)]
+MAX_HOJAS = 5
 
 _DEFAULTS: dict = {
-    "openai_api_key": "",
-    "langfuse_public_key": "",
-    "langfuse_secret_key": "",
-    "langfuse_host": "https://us.cloud.langfuse.com",
+    "openai_api_key": os.getenv("OPENAI_API_KEY", ""),
+    "langfuse_public_key": os.getenv("LANGFUSE_PUBLIC_KEY", ""),
+    "langfuse_secret_key": os.getenv("LANGFUSE_SECRET_KEY", ""),
+    "langfuse_host": os.getenv("LANGFUSE_HOST", "https://us.cloud.langfuse.com"),
     "analysis_result": None,
-    **{k: "" for k in _TEXT_KEYS},
+    "num_sheets_orig": 1,
+    "num_sheets_add": 1,
 }
 
 for _k, _v in _DEFAULTS.items():
@@ -127,7 +132,12 @@ def _build_callbacks() -> list:
     return [CallbackHandler()]
 
 
-def _run_ocr(image_bytes: bytes, slot_index: int, file_extension: str = ".png") -> None:
+def _run_ocr(
+    image_bytes: bytes,
+    text_key: str,
+    file_extension: str = ".png",
+    label_for_toast: str = "",
+) -> None:
     callbacks = _build_callbacks() if _keys_ready else None
 
     with st.spinner("Extrayendo texto con GPT-4o Vision…"):
@@ -143,16 +153,19 @@ def _run_ocr(image_bytes: bytes, slot_index: int, file_extension: str = ".png") 
                 callbacks=callbacks,
                 api_key=st.session_state["openai_api_key"],
             )
-            st.session_state[_TEXT_KEYS[slot_index]] = text
-            st.toast(f"✅ Hoja {slot_index % 3 + 1} extraída correctamente")
+            st.session_state[text_key] = text
+            st.toast(f"✅ Hoja {label_for_toast} extraída correctamente")
         except Exception as exc:
-            st.error(f"Error en OCR (slot {slot_index}): {exc}")
+            st.error(f"Error en OCR (hoja {label_for_toast}): {exc}")
         finally:
-            if os.path.exists(tmp_path):
+            if "tmp_path" in locals() and os.path.exists(tmp_path):
                 os.remove(tmp_path)
+            # Flush de Langfuse base por las dudas
+            if get_client is not None:
+                get_client().flush()
 
 
-def _build_document_text(slot_range: range) -> str:
+def _build_document_text(prefix: str, num_sheets: int) -> str:
     """
     Concatenate non-empty sheet texts for a given slot range using a clear
     human-readable separator so agents can distinguish sheet boundaries.
@@ -161,59 +174,67 @@ def _build_document_text(slot_range: range) -> str:
         --- HOJA 1 ---
 
         <text>
-
-        --- HOJA 2 ---
-
-        <text>
     """
     parts: list[str] = []
-    for relative_idx, slot_idx in enumerate(slot_range, start=1):
-        text = st.session_state[_TEXT_KEYS[slot_idx]].strip()
+    for idx in range(num_sheets):
+        key = f"{prefix}_text_{idx}"
+        text = st.session_state.get(key, "").strip()
         if text:
-            parts.append(f"--- HOJA {relative_idx} ---\n\n{text}")
+            parts.append(f"--- HOJA {idx + 1} ---\n\n{text}")
     return "\n\n".join(parts)
 
 
-def _render_sheet_slot(label: str, sheet_num: int, slot_index: int) -> None:
+def _render_sheet_slot(label: str, slot_idx: int, prefix: str) -> None:
     """
     Render the full upload → preview → OCR → editable-textarea flow for a
-    single sheet slot.  All state is scoped to *slot_index*.
+    single sheet slot.
     """
-    st.markdown(f"**Hoja {sheet_num}**")
+    text_key = f"{prefix}_text_{slot_idx}"
+    if text_key not in st.session_state:
+        st.session_state[text_key] = ""
+
+    current_text = st.session_state[text_key].strip()
+    is_disabled = bool(current_text)
+
+    # Usamos un H3 nativo para que se lea mucho más grande y claro
+    st.markdown(f"### 📄 Hoja {slot_idx + 1}")
 
     uploaded = st.file_uploader(
-        label=f"Cargar Hoja {sheet_num} — {label}",
+        label=f"Cargar Hoja {slot_idx + 1} — {label}",
         type=["png", "jpg", "jpeg", "webp"],
-        key=f"uploader_{slot_index}",
+        key=f"uploader_{prefix}_{slot_idx}",
         label_visibility="collapsed",
+        disabled=is_disabled,
     )
 
     if uploaded is not None:
-        st.image(uploaded, use_container_width=True, caption=uploaded.name)
+        st.image(uploaded, width=150, caption=uploaded.name)
 
         ocr_disabled = not st.session_state["openai_api_key"]
 
         if st.button(
-            "🔍 Extraer Texto de esta Hoja",
-            key=f"ocr_btn_{slot_index}",
-            disabled=ocr_disabled,
+            "Extraer Texto",
+            key=f"ocr_btn_{prefix}_{slot_idx}",
+            disabled=ocr_disabled or is_disabled,
             use_container_width=True,
         ):
             ext = Path(uploaded.name).suffix.lower() or ".png"
-            _run_ocr(uploaded.getvalue(), slot_index, file_extension=ext)
+            _run_ocr(
+                uploaded.getvalue(),
+                text_key,
+                file_extension=ext,
+                label_for_toast=f"{slot_idx + 1}",
+            )
 
         if ocr_disabled:
             st.caption("⚠️ Configurá la OpenAI API Key para habilitar el OCR.")
 
-    # Streamlit owns this widget's value via its key.
-    # Writing to st.session_state[key] from _run_ocr updates it on the next rerun
-    # without conflict — never pass both `key=` and `value=` to the same widget.
     st.text_area(
         label="Texto extraído (editable)",
-        key=_TEXT_KEYS[slot_index],
+        key=text_key,
         height=220,
         placeholder=(
-            'Hacé clic en "Extraer Texto de esta Hoja" para poblar este campo '
+            'Hacé clic en "Extraer Texto" para poblar este campo '
             "automáticamente, o pegá el texto manualmente."
         ),
     )
@@ -224,9 +245,9 @@ def _render_sheet_slot(label: str, sheet_num: int, slot_index: int) -> None:
 # ---------------------------------------------------------------------------
 
 st.title("⚖️ LexTrace")
-st.caption(
-    "Cargá las hojas escaneadas, validá el OCR y ejecutá el análisis "
-    "comparativo entre el contrato original y su adenda."
+st.markdown(
+    "##### Ejecutá el análisis comparativo entre un contrato original y su adenda.",
+    help="El sistema alinea los textos automáticamente usando LangChain y GPT-4o.",
 )
 st.divider()
 
@@ -235,18 +256,47 @@ col_original, col_addendum = st.columns(2, gap="large")
 with col_original:
     st.subheader("📄 Contrato Original")
     st.divider()
-    for _sheet in range(1, 4):
-        _render_sheet_slot("Contrato Original", _sheet, slot_index=_sheet - 1)
-        if _sheet < 3:
+    for idx in range(st.session_state["num_sheets_orig"]):
+        _render_sheet_slot("Contrato Original", idx, "orig")
+        if idx < st.session_state["num_sheets_orig"] - 1:
             st.divider()
+
+    # Columnas internas para agrupar los botones
+    btn_o1, btn_o2 = st.columns(2)
+    with btn_o1:
+        if st.session_state["num_sheets_orig"] < MAX_HOJAS:
+            if st.button("Agregar Hoja", key="btn_add_orig", use_container_width=True):
+                st.session_state["num_sheets_orig"] += 1
+                st.rerun()
+    with btn_o2:
+        if st.session_state["num_sheets_orig"] > 1:
+            if st.button("Quitar Hoja", key="btn_rem_orig", use_container_width=True):
+                idx = st.session_state["num_sheets_orig"] - 1
+                st.session_state.pop(f"orig_text_{idx}", None)
+                st.session_state["num_sheets_orig"] -= 1
+                st.rerun()
 
 with col_addendum:
     st.subheader("📑 Adenda")
     st.divider()
-    for _sheet in range(1, 4):
-        _render_sheet_slot("Adenda", _sheet, slot_index=_sheet + 2)
-        if _sheet < 3:
+    for idx in range(st.session_state["num_sheets_add"]):
+        _render_sheet_slot("Adenda", idx, "add")
+        if idx < st.session_state["num_sheets_add"] - 1:
             st.divider()
+
+    btn_a1, btn_a2 = st.columns(2)
+    with btn_a1:
+        if st.session_state["num_sheets_add"] < MAX_HOJAS:
+            if st.button("Agregar Hoja", key="btn_add_add", use_container_width=True):
+                st.session_state["num_sheets_add"] += 1
+                st.rerun()
+    with btn_a2:
+        if st.session_state["num_sheets_add"] > 1:
+            if st.button("Quitar Hoja", key="btn_rem_add", use_container_width=True):
+                idx = st.session_state["num_sheets_add"] - 1
+                st.session_state.pop(f"add_text_{idx}", None)
+                st.session_state["num_sheets_add"] -= 1
+                st.rerun()
 
 # ---------------------------------------------------------------------------
 # Run pipeline button
@@ -254,31 +304,29 @@ with col_addendum:
 
 st.divider()
 
-_original_text = _build_document_text(range(0, 3))
-_addendum_text = _build_document_text(range(3, 6))
+_original_text = _build_document_text("orig", st.session_state["num_sheets_orig"])
+_addendum_text = _build_document_text("add", st.session_state["num_sheets_add"])
 
 _analysis_ready = bool(_original_text and _addendum_text and _keys_ready)
 
-btn_col, hint_col = st.columns([1, 3], gap="medium")
+st.markdown("### 🚀 Ejecución del Análisis")
 
-with btn_col:
-    _run_analysis = st.button(
-        "🚀 Ejecutar Análisis Legal",
-        disabled=not _analysis_ready,
-        type="primary",
-        use_container_width=True,
-    )
+# Mensajes de validación limpios apilados antes del botón
+if not _keys_ready:
+    st.warning("⚠️ Completá las tres credenciales de API en el panel lateral.")
+elif not _original_text:
+    st.info("📄 Falta completar el texto del Contrato Original.")
+elif not _addendum_text:
+    st.info("📑 Falta completar el texto de la Adenda.")
+else:
+    st.success("✅ Todo listo para ejecutar el análisis comparativo.")
 
-with hint_col:
-    st.write("")  # vertical alignment nudge
-    if not _original_text:
-        st.info("Falta texto del Contrato Original.")
-    elif not _addendum_text:
-        st.info("Falta texto de la Adenda.")
-    elif not _keys_ready:
-        st.info("Completá las tres API keys en el sidebar.")
-    else:
-        st.success("Todo listo para ejecutar.")
+_run_analysis = st.button(
+    "Ejecutar Análisis Legal",
+    disabled=not _analysis_ready,
+    type="primary",
+    use_container_width=True,
+)
 
 # ---------------------------------------------------------------------------
 # Pipeline orchestration
@@ -288,11 +336,13 @@ if _run_analysis:
     _set_langfuse_env()
 
     with st.status("⚙️ Ejecutando pipeline de análisis…", expanded=True) as _status:
+        _ctx = None  # Inicializamos por las dudas para evitar NameError en finally
         try:
-            # ── Traza padre Langfuse con jerarquía de spans ──────────────
+            # ── Traza padre e integración explícita con Langfuse ─────────
             _trace_metadata = {
-                "langfuse_session_id": "lextrace-streamlit",
-                "langfuse_tags": ["streamlit", "contract-analysis"],
+                "interface": "streamlit",
+                "original_chars": str(len(_original_text)),
+                "addendum_chars": str(len(_addendum_text)),
             }
 
             if propagate_attributes is not None:
@@ -300,17 +350,11 @@ if _run_analysis:
                     trace_name="lextrace-pipeline",
                     session_id="lextrace-streamlit",
                     user_id="streamlit-user",
-                    metadata={
-                        "interface": "streamlit",
-                        "original_chars": len(_original_text),
-                        "addendum_chars": len(_addendum_text),
-                    },
+                    metadata=_trace_metadata,
                 )
                 _ctx.__enter__()
-            else:
-                _ctx = None
 
-            _callbacks = [CallbackHandler()]
+            _callbacks = _build_callbacks()
 
             # ── Step 1: Contextualization Agent (Cartógrafo) ──────────────
             st.write("🗺️  **Agente 1 — Cartógrafo**: mapeando secciones…")
@@ -340,6 +384,8 @@ if _run_analysis:
             # ── Flush Langfuse para asegurar envío de trazas ─────────────
             if get_client is not None:
                 get_client().flush()
+            if hasattr(_callbacks[0], "flush"):
+                _callbacks[0].flush()
 
         except ValidationError as ve:
             _status.update(label="❌ Error de Validación de Datos", state="error")
