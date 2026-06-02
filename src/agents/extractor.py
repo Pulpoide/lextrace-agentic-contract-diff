@@ -7,6 +7,8 @@ final validado por Pydantic: ContractChangeOutput.
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from openai import RateLimitError, APITimeoutError
 
 from src.models import SectionMapping, ContractChangeOutput
 
@@ -44,6 +46,12 @@ class ExtractionAgent:
         self.callbacks = callbacks or []
         self.chain = llm.with_structured_output(ContractChangeOutput)
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=60),
+        retry=retry_if_exception_type((RateLimitError, APITimeoutError)),
+        reraise=True,
+    )
     def run(self, mappings: list[SectionMapping]) -> ContractChangeOutput:
         buffer = [
             "Analiza los siguientes pares de secciones correspondientes entre el contrato original y la adenda:\n"

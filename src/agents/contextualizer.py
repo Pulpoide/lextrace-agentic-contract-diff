@@ -6,6 +6,8 @@ original y la adenda. NO analiza cambios, solo alinea secciones.
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from openai import RateLimitError, APITimeoutError
 
 from src.models import SectionMapping
 from pydantic import BaseModel, Field
@@ -45,6 +47,12 @@ class ContextualizationAgent:
         self.callbacks = callbacks or []
         self.chain = llm.with_structured_output(SectionMappingList)
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=60),
+        retry=retry_if_exception_type((RateLimitError, APITimeoutError)),
+        reraise=True,
+    )
     def run(self, original_text: str, amended_text: str) -> list[SectionMapping]:
         human_content = (
             f"## CONTRATO ORIGINAL:\n{original_text}\n\n## ADENDA:\n{amended_text}"

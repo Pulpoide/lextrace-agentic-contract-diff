@@ -6,6 +6,8 @@ from pathlib import Path
 
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
+from tenacity import Retrying, stop_after_attempt, wait_exponential, retry_if_exception_type
+from openai import RateLimitError, APITimeoutError
 
 
 logger = logging.getLogger(__name__)
@@ -85,7 +87,14 @@ def parse_contract_image(image_path: str, callbacks: list, api_key: str) -> str:
             ]
         )
 
-        response = llm.invoke([system_message, human_message], config={"callbacks": callbacks})
+        for attempt in Retrying(
+            retry=retry_if_exception_type((RateLimitError, APITimeoutError)),
+            wait=wait_exponential(multiplier=1, min=1, max=60),
+            stop=stop_after_attempt(3),
+            reraise=True,
+        ):
+            with attempt:
+                response = llm.invoke([system_message, human_message], config={"callbacks": callbacks})
         return response.content
 
     except Exception as e:
