@@ -37,4 +37,4 @@ __pycache__/
 # OS Files (Windows / Mac)
 # =========================
 .DS_Store
-Thumbs.db
+Thumbs.db.coverage

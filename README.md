@@ -76,14 +76,22 @@ Integration utilizes `propagate_attributes()` to generate a parent trace (`lextr
 ```text
 lextrace/
 ├── .env.example              # Environment variables template
-├── requirements.txt          # Python dependencies
+├── pyproject.toml            # Project config & dependency management (uv)
+├── uv.lock                   # Locked dependency tree
 ├── README.md
 ├── app.py                    # Streamlit interface & pipeline orchestration
 ├── data/
 │   └── test_contracts/       # Sample contract images
+├── tests/                    # Test suite (pytest)
+│   ├── fixtures/
+│   │   └── sample_ocr.png    # Minimal image for Base64 encoding tests
+│   ├── test_agents.py
+│   ├── test_image_processor.py
+│   └── test_pipeline.py
 └── src/
     ├── main.py               # CLI orchestrator
     ├── models.py             # Pydantic v2 schemas
+    ├── pipeline.py           # PipelineOrchestrator (DRY execution layer)
     ├── agents/
     │   ├── __init__.py
     │   ├── contextualizer.py # ContextualizationAgent (Semantic Mapper)
@@ -96,24 +104,19 @@ lextrace/
 
 ## Installation & Setup
 
-### 1. Clone and Initialize Environment
+This project uses [uv](https://github.com/astral-sh/uv) for dependency management.
+
+### 1. Clone and Install
 
 ```bash
 git clone <repo-url>
 cd lextrace
-python -m venv .venv
 
-# Windows
-.venv\Scripts\activate
+# Install uv (if not installed)
+curl -Ls https://astral.sh/uv/install.sh | sh
 
-# macOS/Linux
-source .venv/bin/activate
-```
-
-### 2. Install Dependencies
-
-```bash
-pip install -r requirements.txt
+# Install all dependencies (creates .venv automatically)
+uv sync
 ```
 
 ### 3. Configure Environment Variables
@@ -241,6 +244,34 @@ Traces are accessible via the [Langfuse dashboard](https://us.cloud.langfuse.com
 | `RateLimitError`  | OpenAI request limit exceeded              | Rate limit reached. Execution paused.       |
 | `APITimeoutError` | OpenAI connection timeout                  | Connection expired. Retry execution.        |
 | `RuntimeError`    | OCR image extraction failure               | Exposes original error details for debugging.|
+
+---
+
+## Testing y Cobertura
+
+La suite de tests usa **pytest** y corre íntegramente con mocks, sin consumir tokens de la API de OpenAI:
+
+- **`pytest-mock`**: Parchea `ChatOpenAI.invoke` tanto en los agentes Langchain como en `parse_contract_image` (GPT-4o Vision). Esto hace que todos los tests sean deterministas, rápidos y gratuitos.
+- **`pytest-cov`**: Genera un reporte de cobertura en la terminal indicando qué líneas de `src/` no están cubiertas.
+
+### Ejecutar los tests
+
+```bash
+uv run pytest --cov=src --cov-report=term-missing
+```
+
+### Resultados de Cobertura (hito actual)
+
+| Módulo | Cobertura |
+|---|---|
+| `src/pipeline.py` | 100% |
+| `src/models.py` | 100% |
+| `src/agents/contextualizer.py` | 100% |
+| `src/agents/extractor.py` | 100% |
+| `src/utils/image_processor.py` | 88% |
+| **Core lógico total** | **~97%** |
+
+> `src/main.py` queda excluido del análisis ya que es un wrapper CLI puro (`argparse` + I/O de archivos reales).
 
 ---
 
