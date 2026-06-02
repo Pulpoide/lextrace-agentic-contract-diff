@@ -1,4 +1,4 @@
-# ⚖️ LexTrace — Multi-Agent Contract Analysis System
+# LexTrace: Multi-Agent Semantic Contract Analysis System
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![LangChain](https://img.shields.io/badge/LangChain-Agents-green)
@@ -7,96 +7,96 @@
 ![Langfuse](https://img.shields.io/badge/Langfuse-Observability-orange)
 ![Streamlit](https://img.shields.io/badge/Streamlit-Interface-FF4B4B)
 
-Sistema multi-agente que analiza diferencias entre un contrato original y su adenda/enmienda. Extrae texto de imágenes escaneadas mediante GPT-4o Vision, identifica cambios legales a través de dos agentes especializados y produce un JSON estructurado validado con Pydantic v2.
+An enterprise-grade multi-agent system designed to analyze semantic discrepancies between an original contract and its amendments. The pipeline extracts text from scanned images using GPT-4o Vision, identifies legal modifications through specialized agents, and outputs a structured JSON validated with Pydantic v2.
 
 ---
 
-## 🏗️ Arquitectura
+## Architecture Overview
 
 ```mermaid
 graph TD
-    A["📄 Imágenes: Contrato + Adenda"] --> B["📸 parse_contract_image — GPT-4o Vision"]
-    B -->|Texto Plano| C["🗺️ Agente 1 — Cartógrafo: ContextualizationAgent"]
-    C -->|Mapa de Correspondencias| D["🔍 Agente 2 — Detective: ExtractionAgent"]
-    D -->|Structured Output| E["✅ Validación Pydantic: ContractChangeOutput"]
-    E -->|JSON Final| F["📋 Output en Streamlit"]
+    A["Scanned Documents"] --> B["parse_contract_image (GPT-4o Vision)"]
+    B -->|Raw Text| C["ContextualizationAgent (Semantic Mapper)"]
+    C -->|Section Mapping| D["ExtractionAgent (Anomaly Detector)"]
+    D -->|Structured Output| E["Pydantic Validation (ContractChangeOutput)"]
+    E -->|Validated JSON| F["Streamlit Interface"]
 
-    subgraph Observabilidad
-        B -.-> L["📊 Langfuse Trace: lextrace-pipeline"]
+    subgraph Observability
+        B -.-> L["Langfuse Trace: lextrace-pipeline"]
         C -.-> L
         D -.-> L
     end
 ```
 
-### Pipeline Multi-Agente
+### Multi-Agent Pipeline
 
-| Paso | Componente                | Rol              | Input → Output                         |
-| ---- | ------------------------- | ---------------- | -------------------------------------- |
-| 1    | `parse_contract_image`    | Extracción OCR   | Imagen → Texto plano                   |
-| 2    | `ContextualizationAgent`  | 🗺️ Cartógrafo    | 2 textos → `list[SectionMapping]`      |
-| 3    | `ExtractionAgent`         | 🔍 Detective     | Mappings → `ContractChangeOutput`      |
-| 4    | Pydantic Validation       | Validación       | Structured Output → JSON validado      |
-
----
-
-## 🧠 Decisiones de Arquitectura
-
-### ¿Por qué 2 agentes en vez de 1 prompt?
-
-Un solo prompt que reciba ambos contratos completos sufre de **degradación de contexto**: al intentar alinear secciones Y detectar cambios simultáneamente, la calidad de ambas tareas disminuye. La separación de responsabilidades resuelve esto:
-
-- **Cartógrafo** 🗺️: Se enfoca exclusivamente en el alineamiento semántico entre secciones. Su output es un mapa de correspondencias limpio que reduce el ruido para el siguiente agente.
-- **Detective** 🔍: Recibe un contexto altamente enfocado (pares de secciones ya alineadas), lo que minimiza drásticamente las alucinaciones en la extracción de cambios legales.
-
-### ¿Por qué `with_structured_output` y no `model_validate()`?
-
-Ambos enfoques son válidos según la consigna. Se eligió `with_structured_output()` de LangChain porque:
-
-1. **Fuerza el schema a nivel de API**: OpenAI genera la respuesta ya en el formato correcto, reduciendo errores de parsing.
-2. **Integración nativa con LangChain**: El objeto Pydantic se retorna directamente, sin pasos intermedios de deserialización.
-3. **Compatibilidad con Langfuse**: Los callbacks capturan automáticamente el structured output como parte del trace.
-
-### ¿Por qué `temperature=0`?
-
-En el dominio legal, la reproducibilidad es crítica. Un análisis de contrato debe producir resultados consistentes ante las mismas entradas. `temperature=0` garantiza outputs determinísticos.
-
-### Observabilidad con Langfuse
-
-La integración con Langfuse utiliza `propagate_attributes()` para crear una **traza padre** (`lextrace-pipeline`) con jerarquía de spans. Esto permite:
-
-- Auditar cada decisión de los agentes paso a paso
-- Controlar costos por token en cada etapa
-- Medir latencia por agente
-- Registrar metadata contextual (cantidad de caracteres procesados, interfaz de origen)
+| Step | Component                | Role               | Input → Output                     |
+|------|--------------------------|--------------------|------------------------------------|
+| 1    | `parse_contract_image`   | OCR Extraction     | Image → Raw Text                   |
+| 2    | `ContextualizationAgent` | Semantic Mapper    | 2 Texts → `list[SectionMapping]`   |
+| 3    | `ExtractionAgent`        | Anomaly Detector   | Mappings → `ContractChangeOutput`  |
+| 4    | Pydantic Validation      | Schema Enforcement | Structured Output → Validated JSON |
 
 ---
 
-## 📁 Estructura del Proyecto
+## Engineering Decisions
 
-```
+### Mitigating LLM Context Fatigue
+
+A single-prompt approach receiving full contracts suffers from context degradation: attempting to align sections AND detect semantic changes simultaneously degrades the quality of both tasks. Separation of concerns resolves this:
+
+- **Contextualization Agent:** Focuses exclusively on semantic alignment between sections. Its output is a clean mapping that acts as a noise-reduction filter.
+- **Extraction Agent:** Receives a highly focused context window (pre-aligned section pairs), drastically minimizing hallucinations during legal anomaly detection.
+
+### Structured Outputs API over Native Parsing
+
+While standard `model_validate()` is functional, LangChain's `with_structured_output()` was implemented because:
+
+1. **API-Level Schema Enforcement:** Forces the LLM to generate the response in the exact schema natively, reducing parsing overhead.
+2. **Seamless Integration:** Returns the Pydantic object directly without intermediate deserialization steps.
+3. **Observability Sync:** Langfuse callbacks automatically capture the structured output as part of the execution trace.
+
+### Deterministic Execution (`temperature=0`)
+
+In the legal domain, reproducibility is critical. A contract analysis must yield consistent results across identical inputs. Setting `temperature=0` ensures deterministic agent behavior.
+
+### Enterprise Observability with Langfuse
+
+Integration utilizes `propagate_attributes()` to generate a parent trace (`lextrace-pipeline`) with a span hierarchy. This infrastructure provides:
+
+- Step-by-step auditing of agent decisions.
+- Token cost tracking per execution stage.
+- Latency monitoring per agent.
+- Contextual metadata logging (processed character counts, origin interface).
+
+---
+
+## Project Structure
+
+```text
 lextrace/
-├── .env.example          # Variables de entorno requeridas
-├── requirements.txt      # Dependencias Python
+├── .env.example              # Environment variables template
+├── requirements.txt          # Python dependencies
 ├── README.md
-├── app.py                # Interfaz Streamlit + orquestación del pipeline
+├── app.py                    # Streamlit interface & pipeline orchestration
 ├── data/
-│   └── test_contracts/   # Imágenes de contratos de prueba
+│   └── test_contracts/       # Sample contract images
 └── src/
-    ├── main.py            # Orquestador CLI (modo terminal)
-    ├── models.py          # Modelos Pydantic v2
+    ├── main.py               # CLI orchestrator
+    ├── models.py             # Pydantic v2 schemas
     ├── agents/
     │   ├── __init__.py
-    │   ├── contextualizer.py  # Agente 1 — Cartógrafo
-    │   └── extractor.py       # Agente 2 — Detective
+    │   ├── contextualizer.py # ContextualizationAgent (Semantic Mapper)
+    │   └── extractor.py      # ExtractionAgent (Anomaly Detector)
     └── utils/
         └── image_processor.py # GPT-4o Vision utilities
 ```
 
 ---
 
-## 🚀 Instalación
+## Installation & Setup
 
-### 1. Clonar y crear entorno virtual
+### 1. Clone and Initialize Environment
 
 ```bash
 git clone <repo-url>
@@ -110,172 +110,140 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
-### 2. Instalar dependencias
+### 2. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Configurar variables de entorno
+### 3. Configure Environment Variables
 
 ```bash
 cp .env.example .env
-# Editar .env con tus API keys
 ```
 
-Variables requeridas:
+Required keys:
 
-| Variable              | Descripción                                   |
-| --------------------- | --------------------------------------------- |
-| `OPENAI_API_KEY`      | API key de OpenAI para GPT-4o Vision          |
-| `LANGFUSE_SECRET_KEY` | Secret key de Langfuse                        |
-| `LANGFUSE_PUBLIC_KEY` | Public key de Langfuse                        |
-| `LANGFUSE_HOST`       | URL del host de Langfuse (default: `https://us.cloud.langfuse.com`) |
+| Variable              | Description                                                   |
+|-----------------------|---------------------------------------------------------------|
+| `OPENAI_API_KEY`      | OpenAI API key for GPT-4o Vision & agent execution           |
+| `LANGFUSE_SECRET_KEY` | Langfuse Secret Key                                           |
+| `LANGFUSE_PUBLIC_KEY` | Langfuse Public Key                                           |
+| `LANGFUSE_HOST`       | Langfuse Host URL (default: `https://us.cloud.langfuse.com`) |
 
 ---
 
-## 📖 Uso
+## Usage
 
-### Interfaz Web (Streamlit)
+### Web Interface (Streamlit)
 
 ```bash
 streamlit run app.py
 ```
 
-La interfaz permite:
+Features include:
 
-- **Cargar imágenes** de contratos escaneados (PNG, JPG, JPEG, WEBP) — hasta 3 hojas por documento.
-- **Extraer texto** de cada hoja con GPT-4o Vision (OCR).
-- **Editar manualmente** el texto extraído antes del análisis.
-- **Ejecutar el pipeline** de análisis comparativo con un click.
-- **Visualizar resultados** estructurados: resumen, temas involucrados y secciones modificadas.
+- **Image Upload:** Supports PNG, JPG, JPEG, WEBP (up to 3 pages per document).
+- **Vision Extraction:** OCR processing via GPT-4o Vision.
+- **Manual Override:** Text editing capabilities prior to agent analysis.
+- **Execution:** One-click comparative analysis pipeline.
+- **Data Visualization:** Structured rendering of summaries, topics, and modified sections.
 
-Las API keys se configuran en el sidebar y se mantienen en memoria de sesión — no se persisten en disco.
+*Note: API keys are configured via the sidebar and held in session state; they are not persisted to disk.*
 
-### Modo CLI (Terminal)
+### CLI Mode
 
-El archivo `src/main.py` es el entry point que ejecuta el pipeline completo desde la terminal. Acepta dos rutas de imágenes como argumentos posicionales:
-
-```bash
-python -m src.main <ruta_contrato_original> <ruta_adenda>
-```
-
-| Argumento  | Descripción                              |
-| ---------- | ---------------------------------------- |
-| `original` | Ruta a la imagen del contrato original   |
-| `amendment`| Ruta a la imagen de la adenda/enmienda   |
-
-#### Ejemplo con imágenes de prueba
+The `src/main.py` entry point executes the complete pipeline via terminal, requiring two image paths as positional arguments:
 
 ```bash
-python -m src.main data/test_contracts/original.png data/test_contracts/enmienda.png
+python -m src.main <path_original_contract> <path_amendment>
 ```
 
-> **Nota:** Si usás `uv` como gestor de entorno, ejecutá con `uv run python -m src.main ...`
+#### Execution Log
 
-#### Pipeline de ejecución
+```text
+LexTrace -- Starting analysis...
 
-El CLI ejecuta los mismos 4 pasos que la interfaz Streamlit:
+[Step 1] Extracting text from images...
+   -> Processing original contract: data/test_contracts/original.png
+   [OK] Original: 798 characters extracted
+   -> Processing amendment: data/test_contracts/amendment.png
+   [OK] Amendment: 1011 characters extracted
 
-```
-LexTrace -- Iniciando analisis...
+[Step 2] Semantic Mapper Agent -- Mapping section correspondences...
+   [OK] 7 sections mapped
+      [MOD] 1. Scope of Service
+      [MOD] 2. Duration
+      [MOD] 3. Fees
+      [MOD] 4. Deliverables
+      [MOD] 5. Confidentiality
+      [MOD] 6. Governing Law
+      [NEW] 7. Intellectual Property
 
-[Paso 1] Extrayendo texto de las imagenes...
-   -> Procesando contrato original: data/test_contracts/original.png
-   [OK] Original: 798 caracteres extraidos
-   -> Procesando adenda: data/test_contracts/enmienda.png
-   [OK] Adenda: 1011 caracteres extraidos
-
-[Paso 2] Agente Cartografo -- Mapeando correspondencias...
-   [OK] 7 secciones mapeadas
-      [MOD] 1. Alcance del Servicio
-      [MOD] 2. Duración
-      [MOD] 3. Honorarios
-      [MOD] 4. Entregables
-      [MOD] 5. Confidencialidad
-      [MOD] 6. Legislación Aplicable
-      [NEW] 7. Propiedad Intelectual
-
-[Paso 3] Agente Detective -- Analizando cambios...
-   [OK] Analisis completado
+[Step 3] Anomaly Detector Agent -- Analyzing changes...
+   [OK] Analysis complete
 
 ============================================================
-RESULTADO FINAL
+FINAL RESULT
 ============================================================
 ```
 
-#### Ejemplo de Output JSON
+#### Output (JSON)
 
 ```json
 {
   "sections_changed": [
-    "1. Alcance del Servicio",
-    "2. Duración",
-    "3. Honorarios",
-    "4. Entregables",
-    "7. Propiedad Intelectual"
+    "1. Scope of Service",
+    "2. Duration",
+    "3. Fees",
+    "4. Deliverables",
+    "7. Intellectual Property"
   ],
   "topics_touched": [
-    "Soporte Técnico",
-    "Plazos",
-    "Financiero",
-    "Propiedad Intelectual"
+    "Technical Support",
+    "Deadlines",
+    "Financial",
+    "Intellectual Property"
   ],
-  "summary_of_the_change": "Se amplió el alcance del servicio para incluir análisis regulatorio. La duración del servicio se extendió de 6 a 9 meses. El honorario mensual aumentó de USD 8.000 a USD 9.500. La frecuencia de los reportes de avance cambió de mensual a quincenal. Se añadió una cláusula de propiedad intelectual que establece que todos los entregables serán propiedad del Cliente tras el pago final."
+  "summary_of_the_change": "The scope of service was expanded to include regulatory analysis. The contract duration was extended from 6 to 9 months. The monthly fee increased from USD 8,000 to USD 9,500. Progress report frequency changed from monthly to biweekly. An intellectual property clause was added establishing that all deliverables become the property of the Client upon final payment."
 }
 ```
 
 ---
 
-## 📊 Observabilidad (Langfuse)
+## Observability
 
-Cada ejecución del pipeline genera una traza `lextrace-pipeline` en Langfuse con jerarquía de spans:
+Each pipeline execution generates a `lextrace-pipeline` trace in Langfuse with a span hierarchy:
 
+```text
+lextrace-pipeline (parent trace)
+├── ContextualizationAgent → ChatOpenAI (span — Semantic Mapper)
+└── ExtractionAgent → ChatOpenAI (span — Anomaly Detector)
 ```
-lextrace-pipeline (traza padre)
-├── ContextualizationAgent → ChatOpenAI (span — Cartógrafo)
-└── ExtractionAgent → ChatOpenAI (span — Detective)
-```
 
-Cada span registra automáticamente:
+Each span automatically records:
 
-- **Model name** y **temperature** de cada llamada
-- **Usage tokens** (prompt + completion)
-- **Costo estimado** por llamada
-- **Latencia** de cada paso
-- **Metadata contextual**: caracteres procesados, interfaz de origen
+- Model name and temperature per call.
+- Token usage (prompt + completion).
+- Estimated cost per call.
+- Latency per step.
+- Contextual metadata: characters processed, origin interface.
 
-Para ver los traces, accedé a tu [dashboard de Langfuse](https://us.cloud.langfuse.com) y buscá la traza `lextrace-pipeline`.
+Traces are accessible via the [Langfuse dashboard](https://us.cloud.langfuse.com) under the `lextrace-pipeline` trace name.
 
 ---
 
-## 🛡️ Manejo de Errores
+## Error Handling
 
-El sistema implementa manejo específico de errores con mensajes claros para el usuario:
-
-| Error                  | Causa                                        | Mensaje al usuario                                    |
-| ---------------------- | -------------------------------------------- | ----------------------------------------------------- |
-| `ValidationError`      | El LLM generó un formato incompatible        | "El modelo generó un formato incompatible con el schema esperado" |
-| `RateLimitError`       | Se superó el límite de requests de OpenAI     | "Se alcanzó el límite de la API. Esperá un momento"  |
-| `APITimeoutError`      | Timeout en la conexión con OpenAI            | "La conexión con OpenAI expiró. Reintentá"           |
-| `RuntimeError`         | Fallo en la extracción OCR de imagen         | Detalle del error original                            |
+| Exception         | Root Cause                                 | Resolution / Feedback                       |
+|-------------------|--------------------------------------------|---------------------------------------------|
+| `ValidationError` | LLM generated a schema-incompatible format | Schema mismatch logged; retry requested.    |
+| `RateLimitError`  | OpenAI request limit exceeded              | Rate limit reached. Execution paused.       |
+| `APITimeoutError` | OpenAI connection timeout                  | Connection expired. Retry execution.        |
+| `RuntimeError`    | OCR image extraction failure               | Exposes original error details for debugging.|
 
 ---
 
-## 🧪 Verificación
-
-### Tests rápidos de imports y modelos
-
-```bash
-# Verificar imports y estructura
-python -c "from src.models import ContractChangeOutput; from src.agents.contextualizer import ContextualizationAgent; from src.agents.extractor import ExtractionAgent; from src.utils.image_processor import encode_image_to_base64; print('Todos los modulos importan correctamente.')"
-
-# Verificar validación Pydantic
-python -c "from src.models import ContractChangeOutput; o = ContractChangeOutput(sections_changed=['Clausula 4'], topics_touched=['Honorarios'], summary_of_the_change='Aumento de precio'); print(o.model_dump_json(indent=2))"
-```
-
----
-
-## 📄 Licencia
+## License
 
 MIT
