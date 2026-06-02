@@ -355,20 +355,34 @@ if _run_analysis:
 
             _callbacks = _build_callbacks()
 
-            def on_mapping(mappings):
-                st.write(f"   ↳ {len(mappings)} sección(es) mapeada(s).")
-                st.write("🔎  **Agente 2 — Detective**: extrayendo cambios…")
-
-            st.write("🗺️  **Agente 1 — Cartógrafo**: mapeando secciones…")
             orchestrator = PipelineOrchestrator(
                 api_key=st.session_state["openai_api_key"],
                 callbacks=_callbacks,
             )
-            result: ContractChangeOutput = orchestrator.run_analysis(
-                original_text=_original_text,
-                amendment_text=_addendum_text,
-                on_mapping_complete=on_mapping,
-            )
+
+            with st.status(
+                "🗺️ Cartógrafo — mapeando secciones…", expanded=True
+            ) as _cart_status:
+                section_mappings = orchestrator.run_cartographer(
+                    _original_text, _addendum_text
+                )
+                _cart_status.update(
+                    label=f"🗺️ Cartógrafo — {len(section_mappings)} sección(es) mapeadas.",
+                    state="complete",
+                    expanded=False,
+                )
+
+            with st.status(
+                "🔎 Detective — extrayendo cambios…", expanded=True
+            ) as _det_status:
+                result: ContractChangeOutput = orchestrator.run_extractor(
+                    section_mappings
+                )
+                _det_status.update(
+                    label="🔎 Detective — análisis completado.",
+                    state="complete",
+                    expanded=False,
+                )
 
             st.session_state["analysis_result"] = result
             _status.update(label="✅ Análisis completado.", state="complete")

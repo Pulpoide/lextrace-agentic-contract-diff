@@ -54,3 +54,19 @@ class PipelineOrchestrator:
         result = detective.run(section_mappings)
 
         return result
+
+    def run_cartographer(
+        self, original_text: str, amendment_text: str
+    ) -> list[SectionMapping]:
+        """Execute Step 2: Cartographer agent for section mapping."""
+        cartographer = ContextualizationAgent(
+            llm=self.llm, callbacks=self.callbacks
+        )
+        return cartographer.run(original_text, amendment_text)
+
+    def run_extractor(
+        self, mappings: list[SectionMapping]
+    ) -> ContractChangeOutput:
+        """Execute Step 3: Detective agent for change extraction."""
+        detective = ExtractionAgent(llm=self.llm, callbacks=self.callbacks)
+        return detective.run(mappings)
