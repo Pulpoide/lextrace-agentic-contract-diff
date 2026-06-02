@@ -2,6 +2,7 @@
 
 from typing import Callable, List, Optional
 
+from langchain_openai import ChatOpenAI
 from src.agents.contextualizer import ContextualizationAgent
 from src.agents.extractor import ExtractionAgent
 from src.models import ContractChangeOutput, SectionMapping
@@ -13,6 +14,11 @@ class PipelineOrchestrator:
     def __init__(self, api_key: str, callbacks: Optional[List] = None):
         self.api_key = api_key
         self.callbacks = callbacks or []
+        self.llm = ChatOpenAI(
+            api_key=api_key,
+            model="gpt-4o",
+            temperature=0,
+        )
 
     def run_analysis(
         self,
@@ -34,7 +40,7 @@ class PipelineOrchestrator:
         """
         # Paso 1: Agente Cartógrafo
         cartographer = ContextualizationAgent(
-            openai_api_key=self.api_key, callbacks=self.callbacks
+            llm=self.llm, callbacks=self.callbacks
         )
         section_mappings = cartographer.run(original_text, amendment_text)
 
@@ -43,7 +49,7 @@ class PipelineOrchestrator:
 
         # Paso 2: Agente Detective
         detective = ExtractionAgent(
-            openai_api_key=self.api_key, callbacks=self.callbacks
+            llm=self.llm, callbacks=self.callbacks
         )
         result = detective.run(section_mappings)
 

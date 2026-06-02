@@ -4,7 +4,7 @@ Construye un mapa de correspondencias entre secciones del contrato
 original y la adenda. NO analiza cambios, solo alinea secciones.
 """
 
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from src.models import SectionMapping
@@ -41,13 +41,9 @@ class SectionMappingList(BaseModel):
 
 
 class ContextualizationAgent:
-    def __init__(self, openai_api_key: str | None = None, callbacks: list | None = None):
+    def __init__(self, llm: BaseChatModel, callbacks: list | None = None):
         self.callbacks = callbacks or []
-        self.llm = ChatOpenAI(
-            model="gpt-4o",
-            temperature=0,
-            api_key=openai_api_key,
-        ).with_structured_output(SectionMappingList)
+        self.chain = llm.with_structured_output(SectionMappingList)
 
     def run(self, original_text: str, amended_text: str) -> list[SectionMapping]:
         human_content = (
@@ -59,5 +55,5 @@ class ContextualizationAgent:
             HumanMessage(content=human_content),
         ]
 
-        response = self.llm.invoke(messages, config={"callbacks": self.callbacks})
+        response = self.chain.invoke(messages, config={"callbacks": self.callbacks})
         return response.mappings

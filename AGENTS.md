@@ -37,9 +37,9 @@ Read this file fully before making any changes.
 
 | File                              | Lines | Role                                                    |
 |-----------------------------------|-------|---------------------------------------------------------|
-| `src/pipeline.py`                 | ~50   | **PipelineOrchestrator** — Central orchestration layer  |
-| `src/agents/contextualizer.py`    | 64    | **ContextualizationAgent** ("Cartographer") — Semantic mapper   |
-| `src/agents/extractor.py`         | 74    | **ExtractionAgent** ("Detective") — Anomaly detector    |
+| `src/pipeline.py`                 | 56    | **PipelineOrchestrator** — Central orchestration layer  |
+| `src/agents/contextualizer.py`    | 67    | **ContextualizationAgent** ("Cartographer") — Semantic mapper   |
+| `src/agents/extractor.py`         | 73    | **ExtractionAgent** ("Detective") — Anomaly detector    |
 | `src/models.py`                   | 42    | **Pydantic v2 schemas** — Data validation boundaries   |
 | `src/utils/image_processor.py`    | 93    | **GPT-4o Vision utilities** — OCR extraction            |
 | `app.py`                          | ~470  | **Streamlit interface** — Web UI entry point            |

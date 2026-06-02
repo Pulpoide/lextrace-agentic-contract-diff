@@ -5,7 +5,7 @@ de secciones para identificar cambios específicos. Produce el output
 final validado por Pydantic: ContractChangeOutput.
 """
 
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from src.models import SectionMapping, ContractChangeOutput
@@ -34,20 +34,15 @@ Recibirás pares de secciones ya mapeadas por el "Cartógrafo".
 class ExtractionAgent:
     """Agente Detective: analiza pares de secciones y detecta cambios."""
 
-    def __init__(self, openai_api_key: str | None = None, callbacks: list | None = None):
+    def __init__(self, llm: BaseChatModel, callbacks: list | None = None):
         """Inicializa el agente con modelo GPT-4o y structured output.
 
         Args:
-            openai_api_key: API key de OpenAI. Si es None, se lee de OPENAI_API_KEY env var.
+            llm: Instancia de BaseChatModel (e.g., ChatOpenAI) inyectada.
             callbacks: Lista de callbacks (e.g. Langfuse) para tracking.
         """
         self.callbacks = callbacks or []
-        self.llm = ChatOpenAI(
-            model="gpt-4o",
-            temperature=0,
-            max_tokens=4096,
-            api_key=openai_api_key,
-        ).with_structured_output(ContractChangeOutput)
+        self.chain = llm.with_structured_output(ContractChangeOutput)
 
     def run(self, mappings: list[SectionMapping]) -> ContractChangeOutput:
         buffer = [
@@ -70,4 +65,4 @@ class ExtractionAgent:
             HumanMessage(content=human_content),
         ]
 
-        return self.llm.invoke(messages, config={"callbacks": self.callbacks})
+        return self.chain.invoke(messages, config={"callbacks": self.callbacks})
