@@ -8,11 +8,14 @@ Orchestrator que coordina el pipeline completo:
 """
 
 import argparse
+import logging
 import os
 import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 try:
     from langfuse import get_client
@@ -36,12 +39,12 @@ def run_pipeline(original_path: str, amendment_path: str) -> None:
     """
     for img_path in [original_path, amendment_path]:
         if not Path(img_path).exists():
-            print(f"[ERROR] Imagen no encontrada: {img_path}")
+            logger.error("Imagen no encontrada: %s", img_path)
             sys.exit(1)
 
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        print("[ERROR] OPENAI_API_KEY no encontrada en .env")
+        logger.error("OPENAI_API_KEY no encontrada en .env")
         sys.exit(1)
 
     langfuse_handler = CallbackHandler()
@@ -102,7 +105,7 @@ def run_pipeline(original_path: str, amendment_path: str) -> None:
         )
 
     except Exception as e:
-        print(f"\n[ERROR CRITICO] durante el pipeline: {str(e)}")
+        logger.error("Error critico durante el pipeline: %s", e)
         sys.exit(1)
     finally:
         if get_client is not None:

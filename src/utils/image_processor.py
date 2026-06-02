@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 
 
 logger = logging.getLogger(__name__)
@@ -71,9 +71,10 @@ def parse_contract_image(image_path: str, callbacks: list, api_key: str) -> str:
             "3. NO incluyas saludos, introducciones ni conclusiones. Devuelve ÚNICAMENTE el texto extraído."
         )
 
-        message = HumanMessage(
+        system_message = SystemMessage(content=system_instructions)
+
+        human_message = HumanMessage(
             content=[
-                {"type": "text", "text": system_instructions},
                 {
                     "type": "image_url",
                     "image_url": {
@@ -84,9 +85,9 @@ def parse_contract_image(image_path: str, callbacks: list, api_key: str) -> str:
             ]
         )
 
-        response = llm.invoke([message], config={"callbacks": callbacks})
+        response = llm.invoke([system_message, human_message], config={"callbacks": callbacks})
         return response.content
 
     except Exception as e:
-        logger.error(f"Error procesando la imagen {image_path}: {str(e)}")
+        logger.error("Error procesando la imagen %s: %s", image_path, e)
         raise RuntimeError(f"Fallo en la extracción OCR: {str(e)}")

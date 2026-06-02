@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from langchain_core.messages import SystemMessage, HumanMessage
 from src.utils.image_processor import encode_image_to_base64, parse_contract_image
 
 
@@ -54,15 +55,22 @@ def test_parse_contract_image(mocker, sample_image_path):
     args, kwargs = mock_instance.invoke.call_args
     
     messages = args[0]
-    assert len(messages) == 1
+    assert len(messages) == 2
     
-    human_message = messages[0]
+    # Primer mensaje debe ser SystemMessage con las instrucciones
+    system_message = messages[0]
+    assert isinstance(system_message, SystemMessage)
+    assert "Eres un experto en transcripción" in system_message.content
+    assert "REGLAS ESTRICTAS" in system_message.content
+    
+    # Segundo mensaje debe ser HumanMessage con solo la imagen
+    human_message = messages[1]
+    assert isinstance(human_message, HumanMessage)
     content = human_message.content
     
-    # content debe ser una lista con 2 elementos: texto de instrucciones e imagen url
+    # content debe ser una lista con 1 elemento: imagen url
     assert isinstance(content, list)
-    assert len(content) == 2
-    assert content[0]["type"] == "text"
-    assert content[1]["type"] == "image_url"
-    assert "data:image/png;base64," in content[1]["image_url"]["url"]
+    assert len(content) == 1
+    assert content[0]["type"] == "image_url"
+    assert "data:image/png;base64," in content[0]["image_url"]["url"]
 
