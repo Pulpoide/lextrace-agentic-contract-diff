@@ -34,8 +34,7 @@ except ImportError:
 from pydantic import ValidationError
 from openai import RateLimitError, APITimeoutError
 
-from src.agents.contextualizer import ContextualizationAgent
-from src.agents.extractor import ExtractionAgent
+from src.pipeline import PipelineOrchestrator
 from src.utils.image_processor import parse_contract_image
 from src.models import ContractChangeOutput
 
@@ -356,26 +355,19 @@ if _run_analysis:
 
             _callbacks = _build_callbacks()
 
-            # ── Step 1: Contextualization Agent (Cartógrafo) ──────────────
-            st.write("🗺️  **Agente 1 — Cartógrafo**: mapeando secciones…")
-            cartographer = ContextualizationAgent(
-                openai_api_key=st.session_state["openai_api_key"],
-                callbacks=_callbacks,
-            )
-            section_mappings = cartographer.run(
-                original_text=_original_text,
-                amended_text=_addendum_text,
-            )
-            st.write(f"   ↳ {len(section_mappings)} sección(es) mapeada(s).")
+            def on_mapping(mappings):
+                st.write(f"   ↳ {len(mappings)} sección(es) mapeada(s).")
+                st.write("🔎  **Agente 2 — Detective**: extrayendo cambios…")
 
-            # ── Step 2: Extraction Agent (Detective) ──────────────────────
-            st.write("🔎  **Agente 2 — Detective**: extrayendo cambios…")
-            detective = ExtractionAgent(
-                openai_api_key=st.session_state["openai_api_key"],
+            st.write("🗺️  **Agente 1 — Cartógrafo**: mapeando secciones…")
+            orchestrator = PipelineOrchestrator(
+                api_key=st.session_state["openai_api_key"],
                 callbacks=_callbacks,
             )
-            result: ContractChangeOutput = detective.run(
-                mappings=section_mappings,
+            result: ContractChangeOutput = orchestrator.run_analysis(
+                original_text=_original_text,
+                amendment_text=_addendum_text,
+                on_mapping_complete=on_mapping,
             )
 
             st.session_state["analysis_result"] = result

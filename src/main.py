@@ -24,8 +24,7 @@ except ImportError:
 
 from src.models import ExtractedText
 from src.utils.image_processor import parse_contract_image
-from src.agents.contextualizer import ContextualizationAgent
-from src.agents.extractor import ExtractionAgent
+from src.pipeline import PipelineOrchestrator
 
 
 def run_pipeline(original_path: str, amendment_path: str) -> None:
@@ -67,28 +66,28 @@ def run_pipeline(original_path: str, amendment_path: str) -> None:
         print(f"   [OK] Adenda: {len(amendment.content)} caracteres extraidos")
 
         # ──────────────────────────────────────────────
-        # Paso 2: Agente 1 — Cartógrafo
+        # Paso 2 y 3: Orquestador del Pipeline
         # ──────────────────────────────────────────────
         print("\n[Paso 2] Agente Cartografo -- Mapeando correspondencias...")
-        cartographer = ContextualizationAgent(openai_api_key=api_key, callbacks=callbacks)
-        mappings = cartographer.run(original.content, amendment.content)
-        print(f"   [OK] {len(mappings)} secciones mapeadas")
+        
+        def on_mapping(mappings):
+            print(f"   [OK] {len(mappings)} secciones mapeadas")
+            for m in mappings:
+                if m.original_text and m.amended_text:
+                    status = "[MOD]"
+                elif not m.original_text:
+                    status = "[NEW]"
+                else:
+                    status = "[DEL]"
+                print(f"      {status} {m.section_name}")
+            print("\n[Paso 3] Agente Detective -- Analizando cambios...")
 
-        for m in mappings:
-            if m.original_text and m.amended_text:
-                status = "[MOD]"
-            elif not m.original_text:
-                status = "[NEW]"
-            else:
-                status = "[DEL]"
-            print(f"      {status} {m.section_name}")
-
-        # ──────────────────────────────────────────────
-        # Paso 3: Agente 2 — Detective
-        # ──────────────────────────────────────────────
-        print("\n[Paso 3] Agente Detective -- Analizando cambios...")
-        detective = ExtractionAgent(openai_api_key=api_key, callbacks=callbacks)
-        result = detective.run(mappings)
+        orchestrator = PipelineOrchestrator(api_key=api_key, callbacks=callbacks)
+        result = orchestrator.run_analysis(
+            original.content, 
+            amendment.content, 
+            on_mapping_complete=on_mapping
+        )
         print("   [OK] Analisis completado")
 
         # ──────────────────────────────────────────────
