@@ -1,4 +1,4 @@
-"""Agente 2 — Detective 🔍
+"""Agente 2 — Detective
 
 Recibe el mapa de correspondencias del Cartógrafo y analiza cada par
 de secciones para identificar cambios específicos. Produce el output
@@ -14,7 +14,7 @@ from src.models import SectionMapping, ContractChangeOutput
 
 
 SYSTEM_PROMPT = """\
-Eres el "Detective" 🔍, un experto en auditoría legal y análisis de contratos.
+Eres el "Detective", un experto en auditoría legal y análisis de contratos.
 
 Tu misión es identificar diferencias sustanciales entre un contrato original y su adenda. 
 Recibirás pares de secciones ya mapeadas por el "Cartógrafo".

@@ -1,0 +1,149 @@
+/* ---------------------------------------------------------------------------
+   Tipografía custom — Iosevka (solo para el título Home)
+   --------------------------------------------------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Iosevka+Charon:wght@700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0');
+
+.lextrace-title {
+    font-family: "Iosevka Charon", monospace !important;
+    font-size: 4.5rem !important;
+    font-weight: 700 !important;
+    color: #05a779 !important;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+}
+
+/* ---------------------------------------------------------------------------
+   Ocultar elementos nativos de Streamlit para un look más limpio
+   --------------------------------------------------------------------------- */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+
+/* Ocultar fondo del header y botón de deploy, pero mantener el botón del sidebar funcional */
+header[data-testid="stHeader"] {
+    background: transparent !important;
+}
+.stAppDeployButton {display: none;}
+[data-testid="collapsedControl"] {
+    visibility: visible !important;
+}
+
+/* ---------------------------------------------------------------------------
+   Suavizar bordes y mejorar text areas
+   --------------------------------------------------------------------------- */
+div[data-baseweb="textarea"] > div {
+    border-radius: 8px !important;
+    border: 1px solid #D1D5DB !important;
+}
+
+div[data-baseweb="textarea"] > div:focus-within {
+    border-color: #047857 !important;
+    box-shadow: 0 0 0 1px #05a779 !important;
+}
+
+/* ---------------------------------------------------------------------------
+   Espaciado general y bordes de contenedores
+   --------------------------------------------------------------------------- */
+div[data-testid="stVerticalBlock"] {
+    gap: 1.5rem !important;
+}
+
+/* Botones más redondeados */
+button[data-testid="baseButton-primary"],
+button[data-testid="baseButton-secondary"] {
+    border-radius: 8px !important;
+}
+
+/* Quitar margin-bottom del header del sidebar (flecha) que genera scroll fantasma */
+[data-testid="stSidebarHeader"] {
+    margin-bottom: 0rem !important;
+}
+
+/* ---------------------------------------------------------------------------
+   Stepper Visual — Componente de progreso
+   --------------------------------------------------------------------------- */
+.stepper-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 1rem 0;
+}
+
+.stepper-circle {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-family: sans-serif;
+    font-weight: 700;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+    line-height: 1;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.stepper-circle.completed {
+    background-color: #05a779;
+    color: white;
+    border: 2px solid #05a779; /* Match active/pending border size to avoid layout shift */
+}
+
+.stepper-circle.active {
+    background-color: transparent;
+    color: #05a779;
+    border: 2px solid #05a779;
+    box-shadow: 0 0 0 4px rgba(5, 167, 121, 0.15);
+}
+
+.stepper-circle.pending {
+    background-color: transparent;
+    border: 2px solid #4B5563;
+    color: #4B5563;
+}
+
+.stepper-line {
+    width: 80px;
+    height: 3px;
+    flex-shrink: 0;
+}
+
+.stepper-line.completed {
+    background-color: #05a779;
+}
+
+.stepper-line.pending {
+    background-color: #4B5563;
+}
+
+/* ---------------------------------------------------------------------------
+   Step 3 — Tarjetas de confirmación
+   --------------------------------------------------------------------------- */
+.confirmation-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    border-radius: 10px;
+    border: 1px solid #D1FAE5;
+    background-color: #ECFDF5;
+    margin-bottom: 0.75rem;
+}
+
+.confirmation-card .card-icon {
+    color: #05a779;
+    font-size: 1.75rem;
+    flex-shrink: 0;
+    font-variation-settings: 'FILL' 1;
+}
+
+.confirmation-card .card-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #05a779;
+}

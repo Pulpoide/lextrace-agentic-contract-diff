@@ -1,4 +1,7 @@
-# LexTrace: Multi-Agent Semantic Contract Analysis System
+# LexTrace
+<div align="center">
+  <img src="assets/banner.png" width="700">
+</div>
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![LangChain](https://img.shields.io/badge/LangChain-Agents-green)
@@ -6,6 +9,8 @@
 ![Pydantic](https://img.shields.io/badge/Pydantic-v2-red)
 ![Langfuse](https://img.shields.io/badge/Langfuse-Observability-orange)
 ![Streamlit](https://img.shields.io/badge/Streamlit-Interface-FF4B4B)
+
+### Multi-Agent Semantic Contract Analysis System
 
 An enterprise-grade multi-agent system designed to analyze semantic discrepancies between an original contract and its amendments. The pipeline extracts text from scanned images using GPT-4o Vision, identifies legal modifications through specialized agents, and outputs a structured JSON validated with Pydantic v2.
 

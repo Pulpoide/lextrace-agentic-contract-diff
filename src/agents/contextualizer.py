@@ -1,4 +1,4 @@
-"""Agente 1 — Cartógrafo 🗺️
+"""Agente 1 — Cartógrafo
 
 Construye un mapa de correspondencias entre secciones del contrato
 original y la adenda. NO analiza cambios, solo alinea secciones.
@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 
 SYSTEM_PROMPT = """\
-Eres el "Cartógrafo" 🗺️, un experto en análisis estructural de documentos legales.
+Eres el "Cartógrafo", un experto en análisis estructural de documentos legales.
 
 Tu ÚNICA tarea es construir un MAPA DE CORRESPONDENCIAS entre las secciones del \
 contrato original y las secciones de la adenda/enmienda.
