@@ -1,14 +1,14 @@
 # LexTrace
 <div align="center">
   <img src="assets/banner.png" width="700">
-</div>
-
+  
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![LangChain](https://img.shields.io/badge/LangChain-Agents-green)
 ![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o_Vision-black)
 ![Pydantic](https://img.shields.io/badge/Pydantic-v2-red)
 ![Langfuse](https://img.shields.io/badge/Langfuse-Observability-orange)
 ![Streamlit](https://img.shields.io/badge/Streamlit-Interface-FF4B4B)
+</div>
 
 ### Multi-Agent Semantic Contract Analysis System
 
